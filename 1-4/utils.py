@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from pathlib import Path
+from PIL import Image
 
 
 def make_linear_data(W, b, num, noise=1):
@@ -175,10 +176,64 @@ def save_to_csv(X, Y, filename):
     df.to_csv(filename, index=False)
     print(f"数据已保存到 '{filename}' 文件中")
 
-# 计算准确率、精确率、召回率、F1分数
-def metrics(all_targets, all_preds):
-    accuracy = accuracy_score(all_targets, all_preds)
-    precision = precision_score(all_targets, all_preds, average='macro')
-    recall = recall_score(all_targets, all_preds, average='macro')
-    f1 = f1_score(all_targets, all_preds, average='macro')
-    return accuracy, precision, recall, f1
+def read_img_from_dir(img_dir: str, img_size: tuple = (28, 28), gray: bool = True):
+    """
+    读取图片文件夹下的图片并转为 ndarray，支持指定图片大小、是否转为灰度图。返回格式为 (num, c, h, w) 的 ndarray。
+
+    Args:
+        img_dir (str): 图片文件夹路径。
+        img_size (tuple, optional): 目标分辨率，如 (28, 28)。默认为 (28, 28)。
+        gray (bool, optional): 是否将图片转换为灰度图。默认为 True。
+
+    Returns:
+        np.ndarray: 形状为 (num, c, h, w) 的 NumPy 数组，其中
+                    num 是图片数量，
+                    c 是通道数（灰度图为1，RGB图为3），
+                    h 和 w 分别是高度和宽度。
+    """
+    # 确保图片目录存在
+    img_dir = Path(img_dir)
+    if not img_dir.is_dir():
+        raise ValueError(f"指定的路径 {img_dir} 不是一个有效的目录。")
+
+    # 收集所有支持的图片文件
+    supported_extensions = ('*.png', '*.jpg', '*.jpeg', '*.bmp', '*.gif')
+    img_paths = []
+    for ext in supported_extensions:
+        img_paths.extend(img_dir.glob(ext))
+
+    if not img_paths:
+        raise ValueError(f"在目录 {img_dir} 中未找到任何支持的图片文件。")
+
+    images = []
+    for img_path in img_paths:
+        try:
+            with Image.open(img_path) as img:
+                # 转换为灰度图或RGB图
+                if gray:
+                    img = img.convert('L')  # 灰度图
+                else:
+                    img = img.convert('RGB')  # RGB图
+
+                # 调整图片大小
+                img = img.resize(img_size)
+
+                # 转换为 NumPy 数组
+                img_np = np.array(img)
+
+                # 如果是灰度图，增加通道维度
+                if gray:
+                    img_np = img_np[np.newaxis, :, :]  # 形状 (1, h, w)
+                else:
+                    img_np = img_np.transpose((2, 0, 1))  # 形状 (3, h, w)
+
+                images.append(img_np)
+        except Exception as e:
+            print(f"无法处理图片 {img_path}: {e}")
+
+    if not images:
+        raise ValueError("未能加载任何图片。")
+
+    # 堆叠所有图片为一个 NumPy 数组，形状为 (num, c, h, w)
+    batch_images = np.stack(images, axis=0)
+    return batch_images
