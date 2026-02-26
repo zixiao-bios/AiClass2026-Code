@@ -1,0 +1,557 @@
+direction: down
+
+title: {
+  label: "CartPole 策略梯度（REINFORCE）项目流程图"
+  near: top-center
+  shape: text
+  style: {
+    font-size: 28
+    bold: true
+  }
+}
+
+# =============================================
+# 第一部分：项目文件结构与依赖关系
+# =============================================
+file_structure: {
+  label: "📁 项目文件结构与依赖关系"
+  style: {
+    font-size: 20
+    bold: true
+    fill: "#f0f4ff"
+    stroke: "#4a6fa5"
+  }
+
+  model: {
+    label: "model.py\n策略网络定义\n(PolicyNet)"
+    shape: class
+    style: {
+      fill: "#dbeafe"
+      stroke: "#3b82f6"
+      font-size: 14
+    }
+  }
+
+  pg: {
+    label: "policy_gradient.py\nREINFORCE 算法实现\n(PolicyGradient)"
+    shape: class
+    style: {
+      fill: "#dbeafe"
+      stroke: "#3b82f6"
+      font-size: 14
+    }
+  }
+
+  train: {
+    label: "train.py\n训练入口脚本"
+    shape: class
+    style: {
+      fill: "#dcfce7"
+      stroke: "#22c55e"
+      font-size: 14
+    }
+  }
+
+  eval: {
+    label: "eval.py\n模型评估脚本"
+    shape: class
+    style: {
+      fill: "#fef9c3"
+      stroke: "#eab308"
+      font-size: 14
+    }
+  }
+
+  test_env: {
+    label: "test_env.py\n环境探索脚本"
+    shape: class
+    style: {
+      fill: "#fce7f3"
+      stroke: "#ec4899"
+      font-size: 14
+    }
+  }
+
+  pth: {
+    label: "pg_01.pth\n模型权重文件"
+    shape: cylinder
+    style: {
+      fill: "#f3e8ff"
+      stroke: "#a855f7"
+      font-size: 14
+    }
+  }
+
+  model -> pg: "导入 PolicyNet" {
+    style.stroke: "#3b82f6"
+  }
+  pg -> train: "导入 PolicyGradient" {
+    style.stroke: "#22c55e"
+  }
+  model -> eval: "导入 PolicyNet" {
+    style.stroke: "#eab308"
+  }
+  train -> pth: "保存模型权重" {
+    style.stroke: "#a855f7"
+    style.stroke-dash: 5
+  }
+  pth -> eval: "加载模型权重" {
+    style.stroke: "#a855f7"
+    style.stroke-dash: 5
+  }
+}
+
+# =============================================
+# 第二部分：策略网络（PolicyNet）结构
+# =============================================
+network: {
+  label: "🧠 策略网络结构 (PolicyNet)"
+  style: {
+    font-size: 20
+    bold: true
+    fill: "#f0f4ff"
+    stroke: "#4a6fa5"
+  }
+
+  input: {
+    label: "输入层\nstate (1×4)\n[位置, 速度, 角度, 角速度]"
+    shape: rectangle
+    style: {
+      fill: "#e0f2fe"
+      stroke: "#0ea5e9"
+      font-size: 13
+    }
+  }
+
+  fc1: {
+    label: "全连接层 fc1\nLinear(4, 128)\ny = xW¹ᵀ + b¹"
+    shape: rectangle
+    style: {
+      fill: "#dbeafe"
+      stroke: "#3b82f6"
+      font-size: 13
+    }
+  }
+
+  relu: {
+    label: "ReLU 激活函数\nmax(0, x)\n引入非线性"
+    shape: diamond
+    style: {
+      fill: "#fef3c7"
+      stroke: "#f59e0b"
+      font-size: 13
+    }
+  }
+
+  fc2: {
+    label: "全连接层 fc2\nLinear(128, 2)\ny = xW²ᵀ + b²"
+    shape: rectangle
+    style: {
+      fill: "#dbeafe"
+      stroke: "#3b82f6"
+      font-size: 13
+    }
+  }
+
+  softmax: {
+    label: "Softmax 激活函数\nP(aᵢ) = eˣⁱ / Σeˣʲ\n转换为概率分布"
+    shape: diamond
+    style: {
+      fill: "#fef3c7"
+      stroke: "#f59e0b"
+      font-size: 13
+    }
+  }
+
+  output: {
+    label: "输出层\nprobs (1×2)\n[P(左推), P(右推)]"
+    shape: rectangle
+    style: {
+      fill: "#dcfce7"
+      stroke: "#22c55e"
+      font-size: 13
+    }
+  }
+
+  input -> fc1: "(1, 4)" {style.stroke: "#64748b"}
+  fc1 -> relu: "(1, 128)" {style.stroke: "#64748b"}
+  relu -> fc2: "(1, 128)" {style.stroke: "#64748b"}
+  fc2 -> softmax: "(1, 2) logits" {style.stroke: "#64748b"}
+  softmax -> output: "(1, 2) 概率" {style.stroke: "#64748b"}
+}
+
+# =============================================
+# 第三部分：训练主循环流程
+# =============================================
+training: {
+  label: "🏋️ 训练流程 (train.py)"
+  style: {
+    font-size: 20
+    bold: true
+    fill: "#f0fdf4"
+    stroke: "#22c55e"
+  }
+
+  start: {
+    label: "开始训练"
+    shape: oval
+    style: { fill: "#bbf7d0"; stroke: "#16a34a" }
+  }
+
+  init: {
+    label: "初始化\n• 设置超参数 (lr=0.002, γ=0.98, N=5)\n• 创建 CartPole 环境\n• 创建 PolicyGradient 智能体\n• 创建 TensorBoard 日志"
+    shape: rectangle
+    style: { fill: "#ecfdf5"; stroke: "#22c55e"; font-size: 12 }
+  }
+
+  outer_loop: {
+    label: "外层循环\ni = 0, 1, ..., 399\n(共 400 轮，每轮 N=5 个 episode)"
+    shape: hexagon
+    style: { fill: "#fef3c7"; stroke: "#f59e0b"; font-size: 12 }
+  }
+
+  init_batch: {
+    label: "初始化批次数据\ndata_N = []\nepisode_reward = 0"
+    shape: rectangle
+    style: { fill: "#ecfdf5"; stroke: "#22c55e"; font-size: 12 }
+  }
+
+  inner_loop: {
+    label: "内层循环\nj = 0, 1, ..., N-1\n(收集 N 条轨迹)"
+    shape: hexagon
+    style: { fill: "#fef3c7"; stroke: "#f59e0b"; font-size: 12 }
+  }
+
+  reset_env: {
+    label: "重置环境\nstate, _ = env.reset()\n获得初始状态 s₀"
+    shape: rectangle
+    style: { fill: "#e0f2fe"; stroke: "#0ea5e9"; font-size: 12 }
+  }
+
+  episode_loop: {
+    label: "Episode 循环\n(单条轨迹采集)"
+    shape: hexagon
+    style: { fill: "#fef3c7"; stroke: "#f59e0b"; font-size: 12 }
+  }
+
+  take_action: {
+    label: "选择动作\naction = agent.take_action(state)\n策略网络输出概率 → 随机采样"
+    shape: rectangle
+    style: { fill: "#dbeafe"; stroke: "#3b82f6"; font-size: 12 }
+  }
+
+  env_step: {
+    label: "执行动作\nnext_state, reward, terminated,\ntrunacted, _ = env.step(action)"
+    shape: rectangle
+    style: { fill: "#e0f2fe"; stroke: "#0ea5e9"; font-size: 12 }
+  }
+
+  record: {
+    label: "记录数据\ndata['states'].append(state)\ndata['actions'].append(action)\ndata['rewards'].append(reward)"
+    shape: rectangle
+    style: { fill: "#ecfdf5"; stroke: "#22c55e"; font-size: 12 }
+  }
+
+  check_done: {
+    label: "Episode 结束？\nterminated or truncated"
+    shape: diamond
+    style: { fill: "#fef3c7"; stroke: "#f59e0b"; font-size: 12 }
+  }
+
+  update: {
+    label: "更新策略网络\nagent.update(data_N)\n(见策略梯度更新流程)"
+    shape: rectangle
+    style: { fill: "#fce7f3"; stroke: "#ec4899"; font-size: 12; bold: true }
+  }
+
+  log: {
+    label: "记录日志\n• 打印平均奖励\n• 写入 TensorBoard"
+    shape: rectangle
+    style: { fill: "#f3e8ff"; stroke: "#a855f7"; font-size: 12 }
+  }
+
+  check_outer: {
+    label: "所有轮次完成？\ni < 400?"
+    shape: diamond
+    style: { fill: "#fef3c7"; stroke: "#f59e0b"; font-size: 12 }
+  }
+
+  save: {
+    label: "保存模型 & 清理\n• torch.save() → pg_01.pth\n• 关闭 TensorBoard\n• 关闭环境"
+    shape: rectangle
+    style: { fill: "#f3e8ff"; stroke: "#a855f7"; font-size: 12 }
+  }
+
+  end: {
+    label: "训练结束"
+    shape: oval
+    style: { fill: "#bbf7d0"; stroke: "#16a34a" }
+  }
+
+  start -> init
+  init -> outer_loop
+  outer_loop -> init_batch
+  init_batch -> inner_loop
+  inner_loop -> reset_env
+  reset_env -> episode_loop
+  episode_loop -> take_action
+  take_action -> env_step
+  env_step -> record
+  record -> check_done
+  check_done -> episode_loop: "否\n继续采集" {
+    style.stroke: "#ef4444"
+  }
+  check_done -> inner_loop: "是\n下一条轨迹" {
+    style.stroke: "#22c55e"
+  }
+  inner_loop -> update: "N 条轨迹收集完毕" {
+    style.stroke: "#ec4899"
+    style.bold: true
+  }
+  update -> log
+  log -> check_outer
+  check_outer -> outer_loop: "否，继续下一轮" {
+    style.stroke: "#ef4444"
+  }
+  check_outer -> save: "是，训练完成" {
+    style.stroke: "#22c55e"
+  }
+  save -> end
+}
+
+# =============================================
+# 第四部分：策略梯度更新流程（REINFORCE 核心）
+# =============================================
+update_flow: {
+  label: "⚡ 策略梯度更新流程 (agent.update)"
+  style: {
+    font-size: 20
+    bold: true
+    fill: "#fdf2f8"
+    stroke: "#ec4899"
+  }
+
+  start: {
+    label: "开始更新\n输入：N 条轨迹 tracj_list"
+    shape: oval
+    style: { fill: "#fce7f3"; stroke: "#ec4899" }
+  }
+
+  init_loss: {
+    label: "初始化\ntot_loss = 0"
+    shape: rectangle
+    style: { fill: "#fce7f3"; stroke: "#ec4899"; font-size: 12 }
+  }
+
+  traj_loop: {
+    label: "遍历每条轨迹\nfor transition_dict in tracj_list"
+    shape: hexagon
+    style: { fill: "#fef3c7"; stroke: "#f59e0b"; font-size: 12 }
+  }
+
+  extract: {
+    label: "提取数据\nreward_list, state_list, action_list\n初始化 G = 0"
+    shape: rectangle
+    style: { fill: "#fce7f3"; stroke: "#ec4899"; font-size: 12 }
+  }
+
+  zero_grad: {
+    label: "清零梯度\noptimizer.zero_grad()"
+    shape: rectangle
+    style: { fill: "#dbeafe"; stroke: "#3b82f6"; font-size: 12 }
+  }
+
+  reverse_loop: {
+    label: "反向遍历轨迹\nfor i in reversed(range(T))\n从最后一步到第一步"
+    shape: hexagon
+    style: { fill: "#fef3c7"; stroke: "#f59e0b"; font-size: 12 }
+  }
+
+  compute_logprob: {
+    label: "计算对数概率\nlog_prob = log π(aᵢ | sᵢ; θ)\n\n具体步骤：\n1. probs = PolicyNet(sᵢ)\n2. p(aᵢ) = probs.gather(1, aᵢ)\n3. log_prob = log(p(aᵢ))"
+    shape: rectangle
+    style: { fill: "#dbeafe"; stroke: "#3b82f6"; font-size: 11 }
+  }
+
+  compute_G: {
+    label: "计算折扣累计回报\nG = γ × G + Rᵢ\n\n递推公式 (从后向前)：\nGₜ = Rₜ + γ × Gₜ₊₁"
+    shape: rectangle
+    style: { fill: "#dcfce7"; stroke: "#22c55e"; font-size: 11 }
+  }
+
+  accumulate_loss: {
+    label: "累加损失\ntot_loss += -log_prob × G\n\n负号：将最大化回报\n转换为最小化损失"
+    shape: rectangle
+    style: { fill: "#fee2e2"; stroke: "#ef4444"; font-size: 11 }
+  }
+
+  backward: {
+    label: "反向传播\ntot_loss.backward()\n计算 ∂loss/∂θ"
+    shape: rectangle
+    style: { fill: "#dbeafe"; stroke: "#3b82f6"; font-size: 12; bold: true }
+  }
+
+  step: {
+    label: "参数更新\noptimizer.step()\nθ = θ - lr × ∇θ loss"
+    shape: rectangle
+    style: { fill: "#dbeafe"; stroke: "#3b82f6"; font-size: 12; bold: true }
+  }
+
+  end: {
+    label: "更新完成\n策略网络参数已优化"
+    shape: oval
+    style: { fill: "#fce7f3"; stroke: "#ec4899" }
+  }
+
+  start -> init_loss
+  init_loss -> traj_loop
+  traj_loop -> extract
+  extract -> zero_grad
+  zero_grad -> reverse_loop
+  reverse_loop -> compute_logprob
+  compute_logprob -> compute_G
+  compute_G -> accumulate_loss
+  accumulate_loss -> reverse_loop: "下一个时间步" {
+    style.stroke: "#f59e0b"
+  }
+  reverse_loop -> traj_loop: "当前轨迹遍历完" {
+    style.stroke: "#f59e0b"
+  }
+  traj_loop -> backward: "所有轨迹处理完" {
+    style.stroke: "#3b82f6"
+    style.bold: true
+  }
+  backward -> step
+  step -> end
+}
+
+# =============================================
+# 第五部分：评估流程
+# =============================================
+evaluation: {
+  label: "📊 评估流程 (eval.py)"
+  style: {
+    font-size: 20
+    bold: true
+    fill: "#fefce8"
+    stroke: "#eab308"
+  }
+
+  start: {
+    label: "开始评估"
+    shape: oval
+    style: { fill: "#fef9c3"; stroke: "#eab308" }
+  }
+
+  load: {
+    label: "加载模型\n1. 创建 PolicyNet 实例\n2. 加载权重 .pth 文件\n3. 切换到 eval() 模式"
+    shape: rectangle
+    style: { fill: "#fef9c3"; stroke: "#eab308"; font-size: 12 }
+  }
+
+  create_env: {
+    label: "创建环境\nCartPole-v1\nmax_episode_steps=2000"
+    shape: rectangle
+    style: { fill: "#e0f2fe"; stroke: "#0ea5e9"; font-size: 12 }
+  }
+
+  reset: {
+    label: "重置环境\nstate, _ = env.reset()"
+    shape: rectangle
+    style: { fill: "#e0f2fe"; stroke: "#0ea5e9"; font-size: 12 }
+  }
+
+  eval_loop: {
+    label: "评估循环"
+    shape: hexagon
+    style: { fill: "#fef3c7"; stroke: "#f59e0b"; font-size: 12 }
+  }
+
+  predict: {
+    label: "策略网络预测\nprobs = model(state)\n输出各动作概率"
+    shape: rectangle
+    style: { fill: "#dbeafe"; stroke: "#3b82f6"; font-size: 12 }
+  }
+
+  greedy: {
+    label: "贪心选择动作\naction = argmax(probs)\n选概率最大的动作\n（确定性策略，不探索）"
+    shape: rectangle
+    style: { fill: "#dcfce7"; stroke: "#22c55e"; font-size: 12 }
+  }
+
+  exec: {
+    label: "执行动作\nenv.step(action)"
+    shape: rectangle
+    style: { fill: "#e0f2fe"; stroke: "#0ea5e9"; font-size: 12 }
+  }
+
+  check: {
+    label: "Episode 结束？"
+    shape: diamond
+    style: { fill: "#fef3c7"; stroke: "#f59e0b"; font-size: 12 }
+  }
+
+  result: {
+    label: "输出结果\nTotal reward = 存活步数\n接近 2000 = 训练成功"
+    shape: rectangle
+    style: { fill: "#f3e8ff"; stroke: "#a855f7"; font-size: 12 }
+  }
+
+  end: {
+    label: "评估结束"
+    shape: oval
+    style: { fill: "#fef9c3"; stroke: "#eab308" }
+  }
+
+  start -> load
+  load -> create_env
+  create_env -> reset
+  reset -> eval_loop
+  eval_loop -> predict
+  predict -> greedy
+  greedy -> exec
+  exec -> check
+  check -> eval_loop: "否" { style.stroke: "#ef4444" }
+  check -> result: "是" { style.stroke: "#22c55e" }
+  result -> end
+}
+
+# =============================================
+# 第六部分：强化学习核心概念总览
+# =============================================
+concepts: {
+  label: "💡 强化学习核心交互循环"
+  style: {
+    font-size: 20
+    bold: true
+    fill: "#f8fafc"
+    stroke: "#64748b"
+  }
+
+  agent: {
+    label: "智能体 (Agent)\nPolicyGradient\n\n包含策略网络 π(a|s;θ)\n负责选择动作"
+    shape: rectangle
+    style: { fill: "#dbeafe"; stroke: "#3b82f6"; font-size: 12; bold: true }
+  }
+
+  env: {
+    label: "环境 (Environment)\nCartPole-v1\n\n模拟倒立摆物理系统\n返回状态和奖励"
+    shape: rectangle
+    style: { fill: "#dcfce7"; stroke: "#22c55e"; font-size: 12; bold: true }
+  }
+
+  agent -> env: "动作 action\n(0=左推, 1=右推)" {
+    style: {
+      stroke: "#3b82f6"
+      font-size: 12
+      bold: true
+    }
+  }
+  env -> agent: "状态 state (4维向量)\n奖励 reward (+1/步)\n是否终止 done" {
+    style: {
+      stroke: "#22c55e"
+      font-size: 12
+      bold: true
+    }
+  }
+}
